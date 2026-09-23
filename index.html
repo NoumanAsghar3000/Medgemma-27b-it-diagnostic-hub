@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MedGemma Medical Analysis Tool</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0f2f3d" />
+<style>
+  :root{
+    --ink:#0f2f3d; --ink-soft:#3a5a68; --paper:#f6f7f5; --panel:#ffffff;
+    --line:#dfe6e3; --accent:#1f6f5c; --accent-soft:#e4f0ec; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;overflow:hidden;}
+  body{
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background:var(--paper); color:var(--ink);
+    display:flex; flex-direction:column; height:100vh;
+  }
+  header{
+    padding:14px 16px; background:var(--ink); color:#eef4f2;
+    display:flex; align-items:center; gap:10px;
+    -webkit-user-select:none; user-select:none; flex-shrink:0;
+  }
+  header h1{ font-size:16px; margin:0; font-weight:600; letter-spacing:0.2px; }
+  .icon-btn-header{
+    background:none; border:1px solid #35545e; color:#cfe3de;
+    border-radius:10px; width:34px; height:34px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; flex-shrink:0;
+  }
+  #sidebar{
+    position:fixed; top:0; left:0; bottom:0; width:270px;
+    background:#0c2530; color:#e4ece9; z-index:30;
+    transform:translateX(-100%); transition:transform 0.22s ease;
+    display:flex; flex-direction:column; padding:14px 10px;
+  }
+  #sidebar.open{ transform:translateX(0); }
+  #sidebarBackdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:20; display:none; }
+  #sidebarBackdrop.open{ display:block; }
+  #newChatBtn{
+    background:var(--accent); color:#fff; border:none; border-radius:10px;
+    padding:10px 12px; font-size:13.5px; font-weight:600; cursor:pointer;
+    text-align:left; margin-bottom:14px;
+  }
+  #chatList{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+  .chat-item{
+    display:flex; align-items:center; gap:6px; padding:9px 10px;
+    border-radius:9px; cursor:pointer; font-size:13px; color:#c8d6d2;
+  }
+  .chat-item:hover, .chat-item.active{ background:#163847; color:#fff; }
+  .chat-item .chat-title{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chat-item .chat-delete{ background:none; border:none; color:#7d938d; font-size:13px; cursor:pointer; padding:2px 4px; flex-shrink:0; }
+  .sidebar-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:#7d938d; padding:6px 10px 4px; }
+  #artifactsPanel{
+    position:fixed; top:0; right:0; bottom:0; width:280px;
+    background:#0c2530; color:#e4ece9; z-index:30;
+    transform:translateX(100%); transition:transform 0.22s ease;
+    display:flex; flex-direction:column; padding:14px 10px;
+  }
+  #artifactsPanel.open{ transform:translateX(0); }
+  #artifactsBackdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:20; display:none; }
+  #artifactsBackdrop.open{ display:block; }
+  .artifact-item{ display:flex; align-items:center; gap:8px; padding:10px; border-radius:9px; background:#12384a; margin-bottom:8px; font-size:12.5px; }
+  .artifact-item .artifact-name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .artifact-download{ background:#1f6f5c; color:#fff; border:none; border-radius:7px; padding:6px 10px; font-size:11.5px; cursor:pointer; flex-shrink:0; }
+  main{
+    flex:1; display:flex; flex-direction:column; padding:16px; gap:14px;
+    max-width:720px; width:100%; margin:0 auto; overflow-y:auto;
+  }
+  .empty-state{ color:var(--ink-soft); font-size:13.5px; text-align:center; margin-top:60px; }
+  .msg{ border-radius:var(--radius); padding:14px 16px; font-size:14.5px; line-height:1.55; }
+  .msg.user{ background:var(--accent-soft); border:1px solid #cfe4dc; }
+  .msg.assistant{ background:var(--panel); border:1px solid var(--line); }
+  .msg .label{ font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); margin-bottom:6px; font-weight:600; }
+  .fade-text{ animation: fadeInOut 1.6s ease-in-out infinite; }
+  @keyframes fadeInOut{ 0%,100%{opacity:0.4;} 50%{opacity:1;} }
+  .persistent-notice{ text-align:center; font-size:10.5px; color:#9aa0a6; padding-top:8px; }
+  .preview-thumb{ max-width:140px; border-radius:10px; margin:0 6px 6px 0; display:inline-block; }
+  .file-chip-img{ max-width:140px; max-height:140px; border-radius:10px; }
+  .file-chip-doc{ display:inline-flex; align-items:center; gap:6px; background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:6px 10px; font-size:12.5px; margin:0 6px 6px 0; }
+  .composer{ flex-shrink:0; background:var(--paper); padding:0 16px 12px; }
+  .composer-inner{ max-width:720px; margin:0 auto; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:10px; display:flex; flex-direction:column; gap:8px; }
+  textarea{ border:none; resize:none; font-size:14.5px; font-family:inherit; padding:6px 4px; min-height:44px; max-height:140px; outline:none; background:transparent; color:var(--ink); }
+  .composer-row{ display:flex; align-items:center; gap:8px; }
+  .icon-btn{ border:1px solid var(--line); background:var(--paper); border-radius:10px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; flex-shrink:0; }
+  #sendBtn{ margin-left:auto; background:var(--accent); color:#fff; border:none; border-radius:10px; padding:0 18px; height:38px; font-weight:600; font-size:13.5px; cursor:pointer; }
+  #sendBtn:disabled{ opacity:0.5; }
+  #attachPreviewBar{ display:none; flex-wrap:wrap; align-items:flex-start; padding:2px 2px 0; }
+  .file-chip-wrap{ position:relative; display:inline-block; }
+  .file-chip-remove{ position:absolute; top:-4px; right:2px; background:#8a1f1f; color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:11px; line-height:18px; text-align:center; cursor:pointer; padding:0; }
+  .status{ font-size:12.5px; color:var(--ink-soft); padding:0 4px; }
+  .spin-icon{ width:15px; height:15px; animation:spin 1.1s linear infinite; display:inline-block; vertical-align:middle; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="artifactsBackdrop"></div>
+<div id="artifactsPanel">
+  <h3 style="margin:0 0 12px;font-size:14px;">PDF Reports</h3>
+  <div id="artifactsList" style="flex:1;overflow-y:auto;font-size:12.5px;color:#a9c1bc;">No reports yet in this chat.</div>
+</div>
+
+<div id="sidebarBackdrop"></div>
+<div id="sidebar">
+  <button id="newChatBtn">+ New Chat</button>
+  <div class="sidebar-label">Recent</div>
+  <div id="chatList"></div>
+</div>
+
+<header>
+  <button class="icon-btn-header" id="menuBtn" title="Chats">☰</button>
+  <div style="flex:1;">
+    <h1>MedGemma Medical Analysis Tool</h1>
+    <div style="font-size:10px;color:#7d938d;margin-top:1px;">MedGemma-27B-IT</div>
+  </div>
+  <button class="icon-btn-header" id="artifactsBtn" title="PDF reports in this chat">🗂</button>
+  <button class="icon-btn-header" id="headerNewChatBtn" title="New chat">✎</button>
+</header>
+
+<div class="app-body" style="flex:1;display:flex;min-height:0;">
+  <main id="thread"></main>
+</div>
+
+<div class="composer">
+  <div class="composer-inner">
+    <div id="attachPreviewBar"></div>
+    <textarea id="textInput" placeholder="Describe symptoms, notes, or a question about the attached files..."></textarea>
+    <div class="composer-row">
+      <button class="icon-btn" id="cameraBtn" title="Take photo">📷</button>
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden />
+      <button class="icon-btn" id="attachBtn" title="Attach files">📎</button>
+      <input type="file" id="fileInput" accept="image/*,.pdf,.docx,.txt,.md,.markdown,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv" multiple hidden />
+      <span class="status" id="statusText"></span>
+      <button id="sendBtn">Analyze</button>
+    </div>
+    <div class="persistent-notice">MedGemma can make mistakes. Please double-check responses.</div>
+  </div>
+</div>
+
+<script>
+const API_BASE = "https://noumanasghar3000--medgemma-app-medgemmamodel-web.modal.run";
+const API_KEY = "GHY89-45LOP-VHK60";
+
+const thread = document.getElementById('thread');
+const textInput = document.getElementById('textInput');
+const fileInput = document.getElementById('fileInput');
+const cameraInput = document.getElementById('cameraInput');
+const attachBtn = document.getElementById('attachBtn');
+const cameraBtn = document.getElementById('cameraBtn');
+const sendBtn = document.getElementById('sendBtn');
+const statusText = document.getElementById('statusText');
+const attachPreviewBar = document.getElementById('attachPreviewBar');
+const menuBtn = document.getElementById('menuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+const newChatBtn = document.getElementById('newChatBtn');
+const headerNewChatBtn = document.getElementById('headerNewChatBtn');
+const chatList = document.getElementById('chatList');
+
+let selectedFiles = [];
+let fileIdCounter = 0;
+let conversations = JSON.parse(localStorage.getItem('mg_conversations') || '[]');
+let activeConversationId = conversations.length > 0 ? conversations[0].id : null;
+
+function saveConversations() { localStorage.setItem('mg_conversations', JSON.stringify(conversations)); }
+function getActiveConversation() { return conversations.find(c => c.id === activeConversationId) || null; }
+
+function renderSidebar() {
+  chatList.innerHTML = '';
+  for (const conv of conversations) {
+    const item = document.createElement('div');
+    item.className = 'chat-item' + (conv.id === activeConversationId ? ' active' : '');
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'chat-title';
+    titleSpan.textContent = conv.title || 'New Chat';
+    item.appendChild(titleSpan);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'chat-delete';
+    delBtn.textContent = '✕';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      conversations = conversations.filter(c => c.id !== conv.id);
+      saveConversations();
+      if (activeConversationId === conv.id) { activeConversationId = null; renderThread(); }
+      renderSidebar();
+    };
+    item.appendChild(delBtn);
+    item.onclick = () => {
+      activeConversationId = conv.id;
+      renderThread();
+      renderSidebar();
+      closeSidebar();
+    };
+    chatList.appendChild(item);
+  }
+}
+
+function renderThread() {
+  thread.innerHTML = '';
+  const conv = getActiveConversation();
+  if (!conv || conv.messages.length === 0) {
+    thread.innerHTML = '<div class="empty-state">Start a new analysis — describe symptoms, attach a photo, or upload a report.</div>';
+    return;
+  }
+  for (const m of conv.messages) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + m.role;
+    div.innerHTML = m.html;
+    thread.appendChild(div);
+  }
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function openSidebar() { sidebar.classList.add('open'); sidebarBackdrop.classList.add('open'); }
+function closeSidebar() { sidebar.classList.remove('open'); sidebarBackdrop.classList.remove('open'); }
+menuBtn.onclick = openSidebar;
+sidebarBackdrop.onclick = closeSidebar;
+
+newChatBtn.onclick = () => { activeConversationId = null; renderThread(); renderSidebar(); closeSidebar(); };
+headerNewChatBtn.onclick = newChatBtn.onclick;
+
+const artifactsBtn = document.getElementById('artifactsBtn');
+const artifactsPanel = document.getElementById('artifactsPanel');
+const artifactsBackdrop = document.getElementById('artifactsBackdrop');
+const artifactsList = document.getElementById('artifactsList');
+
+function openArtifactsPanel() { artifactsPanel.classList.add('open'); artifactsBackdrop.classList.add('open'); }
+function closeArtifactsPanel() { artifactsPanel.classList.remove('open'); artifactsBackdrop.classList.remove('open'); }
+artifactsBackdrop.onclick = closeArtifactsPanel;
+
+artifactsBtn.onclick = () => {
+  const conv = getActiveConversation();
+  const items = (conv && conv.artifacts) ? conv.artifacts : [];
+  artifactsList.innerHTML = '';
+  if (items.length === 0) {
+    artifactsList.textContent = 'No reports yet in this chat.';
+  } else {
+    for (const item of items) {
+      const row = document.createElement('div');
+      row.className = 'artifact-item';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'artifact-name';
+      nameSpan.textContent = item.filename || 'report.pdf';
+      row.appendChild(nameSpan);
+      const dlBtn = document.createElement('button');
+      dlBtn.className = 'artifact-download';
+      dlBtn.textContent = '⬇';
+      dlBtn.onclick = () => {
+        const byteChars = atob(item.base64);
+        const bytes = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        triggerDownload(URL.createObjectURL(blob), item.filename);
+      };
+      row.appendChild(dlBtn);
+      artifactsList.appendChild(row);
+    }
+  }
+  openArtifactsPanel();
+};
+
+attachBtn.onclick = () => fileInput.click();
+cameraBtn.onclick = () => cameraInput.click();
+
+function addFiles(fileList) {
+  for (const f of fileList) selectedFiles.push({ file: f, id: fileIdCounter++ });
+  renderAttachPreview();
+}
+fileInput.onchange = () => { addFiles(fileInput.files); fileInput.value = ''; };
+cameraInput.onchange = () => { addFiles(cameraInput.files); cameraInput.value = ''; };
+
+function renderAttachPreview() {
+  attachPreviewBar.innerHTML = '';
+  if (selectedFiles.length === 0) { attachPreviewBar.style.display = 'none'; return; }
+  attachPreviewBar.style.display = 'flex';
+  for (const entry of selectedFiles) {
+    const wrap = document.createElement('div');
+    wrap.className = 'file-chip-wrap';
+    if (entry.file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.className = 'file-chip-img';
+      img.src = URL.createObjectURL(entry.file);
+      wrap.appendChild(img);
+    } else {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip-doc';
+      chip.textContent = '📄 ' + entry.file.name;
+      wrap.appendChild(chip);
+    }
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'file-chip-remove';
+    removeBtn.textContent = '✕';
+    removeBtn.onclick = () => { selectedFiles = selectedFiles.filter(e => e.id !== entry.id); renderAttachPreview(); };
+    wrap.appendChild(removeBtn);
+    attachPreviewBar.appendChild(wrap);
+  }
+}
+
+function addMessage(role, html, pdfData) {
+  let conv = getActiveConversation();
+  if (!conv) {
+    conv = { id: 'c' + Date.now(), title: 'New Chat', messages: [], artifacts: [] };
+    conversations.unshift(conv);
+    activeConversationId = conv.id;
+  }
+  conv.messages.push({ role, html });
+  if (pdfData) {
+    if (!conv.artifacts) conv.artifacts = [];
+    conv.artifacts.push(pdfData);
+  }
+  if (role === 'user' && conv.title === 'New Chat') {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    conv.title = (tmp.textContent.trim() || 'Image analysis').slice(0, 40);
+  }
+  saveConversations();
+  renderSidebar();
+
+  if (thread.querySelector('.empty-state')) thread.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = html;
+  thread.appendChild(div);
+  thread.scrollTop = thread.scrollHeight;
+  return div;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatAnalysisText(s) {
+  const escaped = escapeHtml(s);
+  const lines = escaped.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      return '&nbsp;&nbsp;&#8226;&nbsp; ' + trimmed.slice(2).trim();
+    }
+    return line;
+  });
+  let html = lines.join('<br>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return html;
+}
+
+function triggerDownload(url, filename) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'report.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function downloadPdfBase64(base64, filename) {
+  const byteChars = atob(base64);
+  const bytes = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  triggerDownload(URL.createObjectURL(blob), filename);
+}
+
+let typingIndicator = null;
+
+function showTypingIndicator() {
+  if (thread.querySelector('.empty-state')) thread.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.innerHTML = '<img src="icons/spinner-icon.png" class="spin-icon" alt="" /> <span class="fade-text">Analyzing...</span>';
+  thread.appendChild(div);
+  thread.scrollTop = thread.scrollHeight;
+  return div;
+}
+
+async function sendAnalysis() {
+  const text = textInput.value.trim();
+  if (!text && selectedFiles.length === 0) return;
+
+  let userHtml = '';
+  for (const entry of selectedFiles) {
+    if (entry.file.type.startsWith('image/')) {
+      userHtml += `<img class="preview-thumb" src="${URL.createObjectURL(entry.file)}" />`;
+    } else {
+      userHtml += `<div class="file-chip-doc" style="margin-bottom:6px;">📄 ${escapeHtml(entry.file.name)}</div>`;
+    }
+  }
+  if (text) userHtml += `<div>${escapeHtml(text)}</div>`;
+  addMessage('user', userHtml);
+
+  const filesToSend = selectedFiles.map(e => e.file);
+  textInput.value = '';
+  selectedFiles = [];
+  renderAttachPreview();
+  sendBtn.disabled = true;
+  typingIndicator = showTypingIndicator();
+
+  const formData = new FormData();
+  formData.append('text', text);
+  for (const f of filesToSend) formData.append('files', f);
+
+  try {
+    const res = await fetch(API_BASE + '/analyze', {
+      method: 'POST',
+      headers: { 'X-API-Key': API_KEY },
+      body: formData,
+    });
+    const rawText = await res.text();
+    let data;
+    try { data = JSON.parse(rawText); }
+    catch { throw new Error('Server did not return a valid response. Try again in a moment.'); }
+    if (!res.ok) throw new Error(data.detail || `Server returned ${res.status}`);
+
+    downloadPdfBase64(data.pdf_base64, data.filename);
+    if (typingIndicator) { typingIndicator.remove(); typingIndicator = null; }
+
+    addMessage('assistant', `
+      <div class="label">MedGemma Analysis</div>
+      ${formatAnalysisText(data.analysis_text)}
+    `, { base64: data.pdf_base64, filename: data.filename });
+    statusText.textContent = 'Done.';
+  } catch (err) {
+    if (typingIndicator) { typingIndicator.remove(); typingIndicator = null; }
+    addMessage('assistant', `<div class="label">Error</div>${escapeHtml(err.message)}`);
+    statusText.textContent = '';
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+sendBtn.onclick = sendAnalysis;
+textInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnalysis(); }
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+renderSidebar();
+renderThread();
+</script>
+</body>
+</html>

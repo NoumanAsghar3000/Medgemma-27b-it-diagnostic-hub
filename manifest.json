@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "MedGemma Medical Analysis Tool",
+  "short_name": "MedGemma",
+  "description": "AI medical imaging analysis tool powered by MedGemma-27B-IT",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f7f5",
+  "theme_color": "#0f2f3d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
